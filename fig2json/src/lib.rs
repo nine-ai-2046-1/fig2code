@@ -27,6 +27,7 @@
 //! ```
 
 pub mod blobs;
+pub mod doctor;
 pub mod error;
 pub mod parser;
 pub mod schema;

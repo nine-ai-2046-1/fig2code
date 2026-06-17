@@ -11,9 +11,11 @@ use std::path::PathBuf;
     For regular .fig files:\n  \
     fig2json input.fig [-o output.json] [--compact] [-v]\n\n\
     For ZIP files (extracts all and converts all .fig files inside):\n  \
-    fig2json input.zip extract-dir [--compact] [-v]")]
+    fig2json input.zip extract-dir [--compact] [-v]\n\n\
+    For diagnostics:\n  \
+    fig2json doctor input.fig [-v]")]
 struct Cli {
-    /// Input .fig or .zip file path
+    /// Input .fig or .zip file path (use "doctor" as first arg for diagnostics)
     input: PathBuf,
 
     /// Directory to extract ZIP contents (required for ZIP files, converts all .fig files found)
@@ -36,7 +38,38 @@ struct Cli {
     raw: bool,
 }
 
+/// CLI arguments for the doctor subcommand (parsed separately)
+#[derive(Parser)]
+#[command(name = "fig2json doctor")]
+struct DoctorCli {
+    /// Input .fig file path
+    input: PathBuf,
+
+    /// Verbose output for debugging
+    #[arg(short, long)]
+    verbose: bool,
+}
+
+/// Check if the "doctor" subcommand is being invoked by examining raw args.
+///
+/// Returns true if the first argument after the binary name is "doctor".
+fn is_doctor_command() -> bool {
+    std::env::args().nth(1).is_some_and(|arg| arg == "doctor")
+}
+
 fn main() -> Result<()> {
+    // Check for the "doctor" subcommand before normal clap parsing
+    if is_doctor_command() {
+        // Re-parse with doctor-specific args (skip the "doctor" arg itself)
+        let args: Vec<String> = std::env::args().collect();
+        // Replace argv[1] ("doctor") with the program name so clap parses correctly
+        let mut doctor_args = vec![args[0].clone()];
+        doctor_args.extend_from_slice(&args[2..]); // skip "doctor"
+        let cli = DoctorCli::parse_from(doctor_args);
+        return fig2json::doctor::run_doctor(&cli.input, cli.verbose);
+    }
+
+    // Normal convert mode (backward compatible)
     let cli = Cli::parse();
 
     if cli.verbose {
